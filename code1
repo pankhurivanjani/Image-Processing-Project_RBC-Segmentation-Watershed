@@ -1,0 +1,59 @@
+I = imread('002.jpg');
+figure,
+imshow(I)
+Igray = rgb2gray(I);
+Ithres = adapthisteq(Igray,'clipLimit',0.02,'Distribution','rayleigh');%this thresholding is giving better results
+
+% T = adaptthresh(Igray,0.629,'ForegroundPolarity', ['brig' ...
+%     'ht'], 'Statistic', 'gaussian');
+
+bin = imbinarize(Ithres ,graythresh(Ithres) );
+BW1 = bwareaopen(bin, 50); %possible paraeter tuning
+BW2= ~BW1;
+filled = imfill(BW2,'holes');
+filled1 = bwareaopen(filled, 50);
+
+se = strel('line',11,90);
+erodedI = imerode(filled1,se);
+
+stats = regionprops('table',erodedI,'Area');
+
+%rbc_sep = bwareafilt(erodedI,[40 100000]);%problem om removing wbc
+filled2 = imfill(erodedI,'holes');
+figure
+imshow(filled2)
+
+
+%%%%%Watershed Algorithm
+% Applying watershed to separate overlapped cells
+D = bwdist(~filled2);
+D = -D;
+D = imgaussfilt(D, 10);
+figure
+L = watershed(D,8);
+imshow(L)
+
+L(~filled2) = 0;
+BW3 = L > 0;
+% Visualize the result
+label = label2rgb(L,'jet',[0.5 0.5 0.5]);
+s = regionprops('table',BW3);
+figure
+imshowpair(I,label,'blend')
+hold on
+for kk = 1:height(s)
+rectangle(...
+  'Position',   s.BoundingBox(kk,:),...
+  'EdgeColor',  'b')
+text(s.BoundingBox(kk,1),s.BoundingBox(kk,2)-25,...
+  num2str(kk),...
+  'FontSize', 12)
+end
+
+%CircularHough
+%ch1 = bwperim(~filled2,4); %perimeter
+[centres, radii, metric] = imfindcircles(ch1, [5, 50], 'ObjectPolarity','bright','Sensitivity',0.9,'EdgeThreshold',0.1);
+figure,
+imshow(I)
+viscircles(centres, radii,'LineStyle','--');
+
